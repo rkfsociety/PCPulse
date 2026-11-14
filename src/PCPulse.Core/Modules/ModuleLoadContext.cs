@@ -39,7 +39,22 @@ internal sealed class ModuleLoadContext : AssemblyLoadContext
     {
         var name = assemblyName.Name;
         if (!string.IsNullOrEmpty(name) && IsHostSharedAssembly(name))
-            return null;
+        {
+            foreach (var loaded in Default.Assemblies)
+            {
+                if (string.Equals(loaded.GetName().Name, name, StringComparison.OrdinalIgnoreCase))
+                    return loaded;
+            }
+
+            try
+            {
+                return Default.LoadFromAssemblyName(assemblyName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
         var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
         return assemblyPath is not null ? LoadFromAssemblyPath(assemblyPath) : null;

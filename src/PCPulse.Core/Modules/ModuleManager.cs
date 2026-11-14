@@ -321,7 +321,13 @@ public sealed class ModuleManager : IAsyncDisposable
             _logger.Error($"Ошибка загрузки модуля «{record.Id}».", ex);
             await handle.UnloadAsync(_logger).ConfigureAwait(false);
             handle.State = ModuleRuntimeState.Faulted;
-            handle.ErrorMessage = ex.Message;
+            handle.ErrorMessage = ex switch
+            {
+                FileNotFoundException fnf when string.IsNullOrWhiteSpace(fnf.Message) && !string.IsNullOrWhiteSpace(fnf.FileName)
+                    => $"Не найдена сборка или файл: {fnf.FileName}",
+                _ when string.IsNullOrWhiteSpace(ex.Message) => ex.GetType().Name,
+                _ => ex.Message
+            };
         }
     }
 
