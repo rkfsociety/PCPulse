@@ -59,7 +59,7 @@ jobs:
           "publish_app=$($publishApp.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           "publish_contract=$($publishContract.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         if: steps.versions.outputs.publish_app == 'true' || steps.versions.outputs.publish_contract == 'true'
         with:
           dotnet-version: '10.0.x'
