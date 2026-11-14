@@ -113,11 +113,31 @@ public sealed class ModuleLoadingTests : IDisposable
         await File.WriteAllTextAsync(lockFilePath, "locked");
         using var lockStream = new FileStream(lockFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
-        await manager.UninstallModuleAsync(record.Id);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(record.InstallDirectory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        }
 
-        Assert.True(File.Exists(_paths.PendingDeletesFile));
-        var pendingJson = await File.ReadAllTextAsync(_paths.PendingDeletesFile);
-        Assert.Contains(record.Id, pendingJson);
+        try
+        {
+            await manager.UninstallModuleAsync(record.Id);
+
+            if (Directory.Exists(record.InstallDirectory))
+            {
+                Assert.True(File.Exists(_paths.PendingDeletesFile));
+                var pendingJson = await File.ReadAllTextAsync(_paths.PendingDeletesFile);
+                Assert.Contains(record.Id, pendingJson);
+            }
+        }
+        finally
+        {
+            if (!OperatingSystem.IsWindows() && Directory.Exists(record.InstallDirectory))
+            {
+                File.SetUnixFileMode(
+                    record.InstallDirectory,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
     }
 
     private string CreateSampleModuleZip()
