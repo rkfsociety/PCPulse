@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>PCPulse</AssemblyName>
+    <RootNamespace>PCPulse.App</RootNamespace>
+    <ApplicationIcon>Assets\PCPulse.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PCPulse.Contracts\PCPulse.Contracts.csproj" />
+    <ProjectReference Include="..\PCPulse.Core\PCPulse.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\PCPulse.png" />
+    <AvaloniaResource Include="Assets\PCPulse.ico" />
+    <None Include="Assets\PCPulse.png" Link="PCPulse.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\scripts\install-linux.sh" Link="install.sh" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('..\..\scripts\install-linux.sh')" />
+    <EmbeddedResource Include="..\..\scripts\apply-update.ps1" LogicalName="PCPulse.App.Scripts.apply-update.ps1" Condition="Exists('..\..\scripts\apply-update.ps1')" />
+    <EmbeddedResource Include="..\..\scripts\apply-update.sh" LogicalName="PCPulse.App.Scripts.apply-update.sh" Condition="Exists('..\..\scripts\apply-update.sh')" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build solution
+        run: dotnet build PCPulse.sln -c Release --warnaserror
+      - name: Run tests
+        run: dotnet test PCPulse.sln -c Release --no-build
+      - name: Pack PCPulse.Contracts
+        run: dotnet pack src/PCPulse.Contracts/PCPulse.Contracts.csproj -c Release -o dist --no-build
+      - name: Publish win-x64 single-file
+        shell: pwsh
+        run: ./scripts/publish-windows.ps1
+      - name: Smoke test packaged EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path 'publish/win-x64/PCPulse.exe').Path
+          $proc = Start-Process -FilePath $exe -ArgumentList '--startup-smoke-test' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "PCPulse smoke test exited with $($proc.ExitCode)" }
+          $log = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'PCPulse\Logs\app.log'
+          if (!(Test-Path $log) -or !(Select-String -Path $log -Pattern 'Проверка запуска PCPulse пройдена' -Quiet)) {
+            throw 'Smoke test log marker was not recorded.'
+          }
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Xvfb and Avalonia runtime libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libfontconfig1 libice6 libsm6 libx11-6 libxext6 libxrender1
+      - name: Build solution
+        run: dotnet build PCPulse.sln -c Release --warnaserror
+      - name: Run tests
+        run: dotnet test PCPulse.sln -c Release --no-build
+      - name: Smoke test Linux graphical startup under Xvfb
+        run: |
+          set -euo pipefail
+          xvfb-run -a dotnet run --project src/PCPulse.App/PCPulse.App.csproj -c Release --no-build -- --startup-smoke-test
+          LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/pcpulse/logs/app.log"
+          grep -q "Проверка запуска PCPulse пройдена" "$LOG_FILE"

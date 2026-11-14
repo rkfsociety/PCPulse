@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>PCPulse.Core</AssemblyName>
+    <RootNamespace>PCPulse.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PCPulse.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PCPulse.Contracts\PCPulse.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Catalog\catalog.json" LogicalName="PCPulse.Core.Catalog.catalog.json" />
+  </ItemGroup>
+</Project>

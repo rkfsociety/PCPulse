@@ -1,0 +1,16 @@
+[
+  {
+    "id": "mempulse",
+    "name": "MemPulse",
+    "description": "Мониторинг и очистка оперативной памяти и процессов",
+    "repository": "rkfsociety/MemPulse",
+    "platforms": ["windows", "linux"]
+  },
+  {
+    "id": "diskpulse",
+    "name": "DiskPulse",
+    "description": "Анализ диска, очистка кэшей и управление установленными программами",
+    "repository": "rkfsociety/DiskPulse",
+    "platforms": ["windows", "linux"]
+  }
+]

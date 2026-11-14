@@ -1,0 +1,10 @@
+{
+  "id": "sample-module",
+  "name": "Образец модуля",
+  "description": "Эталонный модуль для проверки контракта PCPulse 1.0",
+  "version": "1.0.0",
+  "contractVersion": "1.0",
+  "platforms": ["windows", "linux"],
+  "entryAssembly": "PCPulse.SampleModule.dll",
+  "entryType": "PCPulse.SampleModule.SamplePulseModule"
+}

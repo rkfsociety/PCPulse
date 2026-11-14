@@ -1,0 +1,163 @@
+name: Release PCPulse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Directory.Build.props'
+      - 'src/PCPulse.Contracts/PCPulse.Contracts.csproj'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pcpulse-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect pending releases
+        id: versions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Get-XmlVersion([string]$path) {
+            $text = Get-Content $path -Raw
+            $m = [regex]::Match($text, '<Version>\s*([^<]+?)\s*</Version>', 'IgnoreCase')
+            if (-not $m.Success) { throw "Cannot read <Version> from $path" }
+            return $m.Groups[1].Value.Trim()
+          }
+
+          $appVersion = Get-XmlVersion 'src/Directory.Build.props'
+          $contractVersion = Get-XmlVersion 'src/PCPulse.Contracts/PCPulse.Contracts.csproj'
+          $pattern = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+          if ($appVersion -cnotmatch $pattern) { throw "Invalid app version: $appVersion" }
+          if ($contractVersion -cnotmatch $pattern) { throw "Invalid contract version: $contractVersion" }
+
+          $appTag = "v$appVersion"
+          $contractTag = "contracts-v$contractVersion"
+          $publishApp = @(git tag --list $appTag).Count -eq 0
+          $publishContract = @(git tag --list $contractTag).Count -eq 0
+
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            Write-Host "Manual dispatch: app=$appTag (new=$publishApp), contract=$contractTag (new=$publishContract)"
+          }
+
+          "APP_VERSION=$appVersion" >> $env:GITHUB_ENV
+          "APP_TAG=$appTag" >> $env:GITHUB_ENV
+          "CONTRACT_VERSION=$contractVersion" >> $env:GITHUB_ENV
+          "CONTRACT_TAG=$contractTag" >> $env:GITHUB_ENV
+          "publish_app=$($publishApp.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "publish_contract=$($publishContract.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.versions.outputs.publish_app == 'true' || steps.versions.outputs.publish_contract == 'true'
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build and test solution
+        if: steps.versions.outputs.publish_app == 'true' || steps.versions.outputs.publish_contract == 'true'
+        shell: pwsh
+        run: |
+          dotnet build PCPulse.sln -c Release --warnaserror
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+          dotnet test PCPulse.sln -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+
+      - name: Pack PCPulse.Contracts NuGet package
+        if: steps.versions.outputs.publish_app == 'true' || steps.versions.outputs.publish_contract == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          dotnet pack src/PCPulse.Contracts/PCPulse.Contracts.csproj -c Release -o dist --no-build
+          if ($LASTEXITCODE -ne 0) { throw 'dotnet pack failed.' }
+          $nupkg = "dist/PCPulse.Contracts.$env:CONTRACT_VERSION.nupkg"
+          if (!(Test-Path $nupkg)) { throw "Package not found: $nupkg" }
+          $hash = (Get-FileHash $nupkg -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $([IO.Path]::GetFileName($nupkg))" | Set-Content -Path "$nupkg.sha256" -Encoding ascii
+
+      - name: Publish PCPulse.Contracts release
+        if: steps.versions.outputs.publish_contract == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PCPULSE_RELEASE_TOKEN || github.token }}
+        run: |
+          $nupkg = "dist/PCPulse.Contracts.$env:CONTRACT_VERSION.nupkg"
+          gh release create $env:CONTRACT_TAG `
+            $nupkg `
+            "$nupkg.sha256" `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title "PCPulse.Contracts $env:CONTRACT_VERSION" `
+            --notes "Пакет контрактов модулей PCPulse $env:CONTRACT_VERSION." `
+            --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish contracts release.' }
+
+      - name: Install Inno Setup
+        if: steps.versions.outputs.publish_app == 'true'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Publish Windows and Linux app artifacts
+        if: steps.versions.outputs.publish_app == 'true'
+        shell: pwsh
+        run: |
+          ./scripts/publish-windows.ps1
+          Copy-Item "publish/win-x64/PCPulse.exe" "dist/PCPulse-win-x64.exe" -Force
+          $proc = Start-Process -FilePath (Resolve-Path 'publish/win-x64/PCPulse.exe').Path -ArgumentList '--startup-smoke-test' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Packaged startup smoke test failed: $($proc.ExitCode)" }
+
+          ./scripts/build-installer.ps1 -SkipPublish
+
+          foreach ($rid in @('linux-x64', 'linux-arm64')) {
+            dotnet publish src/PCPulse.App/PCPulse.App.csproj --configuration Release --runtime $rid --self-contained true -p:Version=$env:APP_VERSION -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output "publish/$rid"
+            if ($LASTEXITCODE -ne 0) { throw "Linux publish failed: $rid" }
+            tar -czf "dist/PCPulse-$rid.tar.gz" -C "publish/$rid" .
+            if ($LASTEXITCODE -ne 0) { throw "Linux tar failed: $rid" }
+          }
+
+          $paths = @(
+            "dist/PCPulse-Setup-x64.exe",
+            "dist/PCPulse-win-x64.exe",
+            "dist/PCPulse-linux-x64.tar.gz",
+            "dist/PCPulse-linux-arm64.tar.gz",
+            "dist/PCPulse.Contracts.$env:CONTRACT_VERSION.nupkg"
+          )
+          $lines = foreach ($path in $paths) {
+            $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($path))"
+          }
+          $lines | Set-Content -Path "dist/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Publish PCPulse app release
+        if: steps.versions.outputs.publish_app == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PCPULSE_RELEASE_TOKEN || github.token }}
+        run: |
+          gh release create $env:APP_TAG `
+            "dist/PCPulse-Setup-x64.exe" `
+            "dist/PCPulse-win-x64.exe" `
+            "dist/PCPulse-linux-x64.tar.gz" `
+            "dist/PCPulse-linux-arm64.tar.gz" `
+            "dist/PCPulse.Contracts.$env:CONTRACT_VERSION.nupkg" `
+            "dist/SHA256SUMS.txt" `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title "PCPulse $env:APP_VERSION" `
+            --generate-notes `
+            --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish app release.' }
