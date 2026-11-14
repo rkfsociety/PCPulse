@@ -38,6 +38,14 @@ public sealed class AppSmokeTests : IDisposable
     }
 
     [Fact]
+    public void HostSettings_DefaultsToLivingInTray()
+    {
+        var defaults = new HostSettings();
+        Assert.True(defaults.ShowTrayIcon);
+        Assert.True(defaults.MinimizeToTrayOnClose);
+    }
+
+    [Fact]
     public async Task HostSettingsStore_PersistsAndReloadsSettings()
     {
         var paths = new PulsePaths(_tempDir);

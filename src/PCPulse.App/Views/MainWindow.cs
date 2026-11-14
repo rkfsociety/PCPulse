@@ -217,6 +217,13 @@ internal sealed class MainWindow : Window
             {
                 args.Cancel = true;
                 Hide();
+                return;
+            }
+
+            if (!_forceClosing)
+            {
+                _forceClosing = true;
+                _requestAppExit();
             }
         };
 

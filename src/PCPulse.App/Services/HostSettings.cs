@@ -5,7 +5,7 @@ namespace PCPulse.App.Services;
 
 public sealed record HostSettings(
     bool ShowTrayIcon = true,
-    bool MinimizeToTrayOnClose = false);
+    bool MinimizeToTrayOnClose = true);
 
 public sealed class HostSettingsStore
 {

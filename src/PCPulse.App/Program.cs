@@ -41,6 +41,8 @@ internal sealed class PulseApplication : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
             var isSmokeTest = Environment.GetCommandLineArgs()
                 .Contains("--startup-smoke-test", StringComparer.Ordinal);
 
