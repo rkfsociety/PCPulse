@@ -1,4 +1,4 @@
-name: CI
+name: Windows build
 
 on:
   push:
@@ -6,8 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  windows:
+  build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,25 +37,3 @@ jobs:
           if (!(Test-Path $log) -or !(Select-String -Path $log -Pattern 'Проверка запуска PCPulse пройдена' -Quiet)) {
             throw 'Smoke test log marker was not recorded.'
           }
-
-  linux:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - name: Install Xvfb and Avalonia runtime libs
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb libfontconfig1 libice6 libsm6 libx11-6 libxext6 libxrender1
-      - name: Build solution
-        run: dotnet build PCPulse.sln -c Release --warnaserror
-      - name: Run tests
-        run: dotnet test PCPulse.sln -c Release --no-build
-      - name: Smoke test Linux graphical startup under Xvfb
-        run: |
-          set -euo pipefail
-          xvfb-run -a dotnet run --project src/PCPulse.App/PCPulse.App.csproj -c Release --no-build -- --startup-smoke-test
-          LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/pcpulse/logs/app.log"
-          grep -q "Проверка запуска PCPulse пройдена" "$LOG_FILE"
