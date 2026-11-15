@@ -202,9 +202,12 @@ internal sealed class SettingsPage : UserControl
             {
                 FileName = "powershell.exe",
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
             };
             psi.ArgumentList.Add("-NoProfile");
+            psi.ArgumentList.Add("-WindowStyle");
+            psi.ArgumentList.Add("Hidden");
             psi.ArgumentList.Add("-ExecutionPolicy");
             psi.ArgumentList.Add("Bypass");
             psi.ArgumentList.Add("-File");

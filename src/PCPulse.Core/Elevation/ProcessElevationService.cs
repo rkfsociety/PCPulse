@@ -61,6 +61,8 @@ public sealed class ProcessElevationService : IPulseElevationService
                 FileName = fullHelperPath,
                 WorkingDirectory = _moduleInstallDirectory,
                 UseShellExecute = true,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
                 Arguments = BuildWindowsArguments(args)
             };
             if (!IsElevated)
@@ -73,7 +75,8 @@ public sealed class ProcessElevationService : IPulseElevationService
             var psi = new ProcessStartInfo
             {
                 WorkingDirectory = _moduleInstallDirectory,
-                UseShellExecute = false
+                UseShellExecute = false,
+                CreateNoWindow = true
             };
 
             if (IsElevated)

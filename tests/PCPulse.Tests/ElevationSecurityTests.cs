@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using PCPulse.Contracts;
 using PCPulse.Core.Elevation;
 using PCPulse.Core.Modules;
@@ -94,6 +95,8 @@ public sealed class ElevationSecurityTests : IDisposable
         if (OperatingSystem.IsWindows())
         {
             Assert.True(psi.UseShellExecute);
+            Assert.True(psi.CreateNoWindow);
+            Assert.Equal(ProcessWindowStyle.Hidden, psi.WindowStyle);
             Assert.Equal(service.IsElevated ? string.Empty : "runas", psi.Verb);
             Assert.Equal(Path.GetFullPath(helperPath), psi.FileName);
             Assert.Contains("--clean", psi.Arguments);
@@ -101,6 +104,7 @@ public sealed class ElevationSecurityTests : IDisposable
         else
         {
             Assert.False(psi.UseShellExecute);
+            Assert.True(psi.CreateNoWindow);
             if (service.IsElevated)
             {
                 Assert.Equal(Path.GetFullPath(helperPath), psi.FileName);
