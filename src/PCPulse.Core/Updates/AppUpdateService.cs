@@ -30,10 +30,12 @@ public sealed class AppUpdateService
     };
 
     private readonly HttpClient _http;
+    private readonly string? _githubToken;
 
-    public AppUpdateService(HttpClient httpClient)
+    public AppUpdateService(HttpClient httpClient, string? githubToken = null)
     {
         _http = httpClient;
+        _githubToken = githubToken;
     }
 
     public async Task<AppUpdateCheckResult> CheckForUpdateAsync(
@@ -43,7 +45,8 @@ public sealed class AppUpdateService
         CancellationToken cancellationToken = default)
     {
         var url = $"https://api.github.com/repos/{repository}/releases/latest";
-        using var response = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        using var request = GitHubCliAuth.CreateApiRequest(url, _githubToken);
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return new AppUpdateCheckResult(

@@ -38,10 +38,12 @@ public sealed class GitHubReleaseClient
     };
 
     private readonly HttpClient _http;
+    private readonly string? _githubToken;
 
-    public GitHubReleaseClient(HttpClient httpClient)
+    public GitHubReleaseClient(HttpClient httpClient, string? githubToken = null)
     {
         _http = httpClient;
+        _githubToken = githubToken;
     }
 
     public static HttpClient CreateDefaultHttpClient(Version hostVersion)
@@ -67,7 +69,8 @@ public sealed class GitHubReleaseClient
         CancellationToken cancellationToken = default)
     {
         var url = $"https://api.github.com/repos/{entry.Repository}/releases?per_page=10";
-        using var response = await _http.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        using var request = GitHubCliAuth.CreateApiRequest(url, _githubToken);
+        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return new ModuleReleaseResolution(

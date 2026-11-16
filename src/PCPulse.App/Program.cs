@@ -57,8 +57,9 @@ internal sealed class PulseApplication : Application
             var settings = settingsStore.LoadAsync().GetAwaiter().GetResult();
 
             _httpClient = GitHubReleaseClient.CreateDefaultHttpClient(hostVersion);
-            var releaseClient = new GitHubReleaseClient(_httpClient);
-            var updateService = new AppUpdateService(_httpClient);
+            var githubToken = GitHubCliAuth.GetTokenAsync().GetAwaiter().GetResult();
+            var releaseClient = new GitHubReleaseClient(_httpClient, githubToken);
+            var updateService = new AppUpdateService(_httpClient, githubToken);
 
             _moduleManager = new ModuleManager(paths, hostVersion, dialogService, logger);
             if (!isSmokeTest)
